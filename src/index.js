@@ -2,17 +2,27 @@
 
 import * as t from "@babel/types";
 
-type RefsHandlerT = (
-  t: Object,
-  context: Object,
-  refs: Object[],
-  specifierName: string,
-) => any;
+// TODO: flatten recursion into while loop
+// TODO: add alias callback
+export function resolveToValue(path: any) {
+  if (t.isIdentifier(path)) {
+    const p = path.scope.bindings[path.node.name].path;
+    if (t.isVariableDeclarator(p)) {
+      return resolveToValue(p.get("init"));
+    }
+    return p;
+  }
+  return path;
+}
 
 export function createNamedModuleVisitor(
   moduleName: string | Array<string>,
   packageName: string | Array<string>,
-  refsHandler: RefsHandlerT,
+  refsHandler: (
+    context: Object,
+    refs: Array<Object>,
+    specifierName: string,
+  ) => any,
 ) {
   const compareToModuleName = Array.isArray(moduleName)
     ? s => moduleName.includes(s)
@@ -23,7 +33,7 @@ export function createNamedModuleVisitor(
      *
      * import {moduleName} from 'packageName';
      */
-    ImportDeclaration(path /*: Object */, state /*: Object */) {
+    ImportDeclaration(path: Object, state: Object) {
       const sourceName = path.get("source").node.value;
       if (
         (Array.isArray(packageName) &&
@@ -41,14 +51,14 @@ export function createNamedModuleVisitor(
           // import {moduleName} from 'packageName';
           const specifierName = specifier.get("imported").node.name;
           if (compareToModuleName(specifierName)) {
-            refsHandler(t, state, refPaths, specifierName);
+            refsHandler(state, refPaths, specifierName);
           }
         } else if (t.isImportNamespaceSpecifier(specifier)) {
           // import * as pkg from 'packageName';
-          // TODO: Handle this case, or issue a warning because this may not be 100% robust
+          // TODO: Handle this case and/or log a warning because this may not be 100% robust
         } else if (t.isImportDefaultSpecifier(specifier)) {
           if (compareToModuleName("default")) {
-            refsHandler(t, state, refPaths, "default");
+            refsHandler(state, refPaths, "default");
           }
         }
       });
