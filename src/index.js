@@ -33,23 +33,19 @@ export function getImportDeclarationVisitor(
   };
 }
 
-export function visitNamedImports(
+export function visitNamedSpecifiers(
   importPath: Object,
   moduleName: string | Array<string>,
-  handler: (refPaths: Array<Object>, moduleName: string) => any,
+  handler: (path: Array<Object>, moduleName: string) => any,
 ) {
   const matchesModuleName = maybeArrayMatcher(moduleName);
   importPath.get("specifiers").forEach(specifier => {
-    const localPath = specifier.get("local");
-    const localName = localPath.node.name;
-    const refPaths = localPath.scope.bindings[localName].referencePaths;
-
     if (t.isImportSpecifier(specifier)) {
       // import {moduleName} from 'packageName';
 
       const specifierName = specifier.get("imported").node.name;
       if (matchesModuleName(specifierName)) {
-        handler(refPaths, specifierName);
+        handler(specifier, specifierName);
       }
     } else if (t.isImportNamespaceSpecifier(specifier)) {
       // import * as pkg from 'packageName';
@@ -58,9 +54,31 @@ export function visitNamedImports(
       // import Default from 'packageName';
 
       if (matchesModuleName("default")) {
-        handler(refPaths, "default");
+        handler(specifier, "default");
       }
     }
+  });
+}
+
+export function visitSpecifierReferences(
+  specifierPath: Object,
+  handler: (paths: Array<Object>, moduleName: string) => any,
+) {
+  const localPath = specifierPath.get("local");
+  const localName = localPath.node.name;
+  const refPaths = localPath.scope.bindings[localName].referencePaths;
+  return handler(refPaths);
+}
+
+export function visitNamedImports(
+  importPath: Object,
+  moduleName: string | Array<string>,
+  handler: (refPaths: Array<Object>, moduleName: string) => any,
+) {
+  visitNamedSpecifiers(importPath, moduleName, specifier => {
+    visitSpecifierReferences(specifier, paths => {
+      handler(paths, moduleName);
+    });
   });
 }
 
