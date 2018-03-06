@@ -18,7 +18,7 @@ bar({});
 ```
 
 ```js
-const visitor = getImportDeclarationVisitor(some-package", path => {
+const visitor = getImportDeclarationVisitor("some-package", path => {
   visitNamedImports(path, "foo", paths => {
     paths.forEach(path => {
       // ...
