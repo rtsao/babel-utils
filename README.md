@@ -1,9 +1,13 @@
 # babel-utils
 
-#### `createNamedModuleVisitor(namedExport, moduleName, handler)`
+#### `getImportDeclarationVisitor(packageName, handler)`
 
-Creates as visitor that calls a handler callback for each reference to a named export. Useful for transforming usages of specific exports of specific packages. Gracefully handles export renaming.
+Creates as visitor that calls a handler callback for each import declaration that matches the supplied package.
 
+
+#### `visitNamedImports(importPath, moduleName, hander)`
+
+Given an import path declaration node, calls a handler callback for each reference to the supplied named modules.
 
 Suppose we want to transform usages of `foo` from `some-package`.
 
@@ -14,9 +18,11 @@ bar({});
 ```
 
 ```js
-const visitor = createNamedModuleVisitor("foo", "some-package", paths => {
-  paths.forEach(path => {
-    // ...
+const visitor = getImportDeclarationVisitor(some-package", path => {
+  visitNamedImports(path, "foo", paths => {
+    paths.forEach(path => {
+      // ...
+    });
   });
 });
 ```
