@@ -15,53 +15,57 @@ export function resolveToValue(path: any) {
   return path;
 }
 
-export function createNamedModuleVisitor(
-  moduleName: string | Array<string>,
+export function getImportDeclarationVisitor(
   packageName: string | Array<string>,
-  refsHandler: (
-    context: Object,
-    refs: Array<Object>,
-    specifierName: string,
-  ) => any,
+  handler: (path: Object, packageName: string) => any,
 ) {
-  const compareToModuleName = Array.isArray(moduleName)
-    ? s => moduleName.includes(s)
-    : s => s === moduleName;
   return {
-    /**
-     * Handle ES imports
-     *
-     * import {moduleName} from 'packageName';
-     */
-    ImportDeclaration(path: Object, state: Object) {
+    ImportDeclaration(path: Object) {
       const sourceName = path.get("source").node.value;
       if (
-        (Array.isArray(packageName) &&
-          packageName.indexOf(sourceName) === -1) ||
-        (typeof packageName === "string" && sourceName !== packageName)
+        (Array.isArray(packageName) && !packageName.includes(sourceName)) ||
+        sourceName !== packageName
       ) {
         return;
       }
-      state.importedPackageName = sourceName;
-      path.get("specifiers").forEach(specifier => {
-        const localPath = specifier.get("local");
-        const localName = localPath.node.name;
-        const refPaths = localPath.scope.bindings[localName].referencePaths;
-        if (t.isImportSpecifier(specifier)) {
-          // import {moduleName} from 'packageName';
-          const specifierName = specifier.get("imported").node.name;
-          if (compareToModuleName(specifierName)) {
-            refsHandler(state, refPaths, specifierName);
-          }
-        } else if (t.isImportNamespaceSpecifier(specifier)) {
-          // import * as pkg from 'packageName';
-          // TODO: Handle this case and/or log a warning because this may not be 100% robust
-        } else if (t.isImportDefaultSpecifier(specifier)) {
-          if (compareToModuleName("default")) {
-            refsHandler(state, refPaths, "default");
-          }
-        }
-      });
+      handler(path, packageName);
     },
   };
+}
+
+export function visitNamedImports(
+  importPath: Object,
+  moduleName: string | Array<string>,
+  handler: (refPaths: Array<Object>, moduleName: string) => any,
+) {
+  const matchesModuleName = maybeArrayMatcher(moduleName);
+  importPath.get("specifiers").forEach(specifier => {
+    const localPath = specifier.get("local");
+    const localName = localPath.node.name;
+    const refPaths = localPath.scope.bindings[localName].referencePaths;
+
+    if (t.isImportSpecifier(specifier)) {
+      // import {moduleName} from 'packageName';
+
+      const specifierName = specifier.get("imported").node.name;
+      if (matchesModuleName(specifierName)) {
+        handler(refPaths, specifierName);
+      }
+    } else if (t.isImportNamespaceSpecifier(specifier)) {
+      // import * as pkg from 'packageName';
+      // TODO: Handle this case and/or log a warning because this may not be 100% robust
+    } else if (t.isImportDefaultSpecifier(specifier)) {
+      // import Default from 'packageName';
+
+      if (matchesModuleName("default")) {
+        handler(refPaths, "default");
+      }
+    }
+  });
+}
+
+function maybeArrayMatcher(maybeArray) {
+  return Array.isArray(maybeArray)
+    ? x => maybeArray.includes(x)
+    : x => maybeArray === x;
 }
