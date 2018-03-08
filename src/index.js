@@ -23,12 +23,12 @@ export function getImportDeclarationVisitor(
     ImportDeclaration(path: Object) {
       const sourceName = path.get("source").node.value;
       if (
-        (Array.isArray(packageName) && !packageName.includes(sourceName)) ||
-        sourceName !== packageName
+        Array.isArray(packageName)
+          ? packageName.includes(sourceName)
+          : sourceName === packageName
       ) {
-        return;
+        handler(path, sourceName);
       }
-      handler(path, packageName);
     },
   };
 }
